@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"encoding/json"
 	"github.com/containous/traefik/types"
 )
 
@@ -18,7 +19,7 @@ func TestForwarder(t *testing.T) {
 		}
 
 		fmt.Println("Chamou o servidor")
-		fmt.Fprintln(w, "{ \"user\" : { \"id\" : 100, \"name\": \"John Lennon\" }}")
+		fmt.Fprintln(w, "{ \"user\" : { \"id\" : 100, \"name\": \"John Lennon\", \"accounts\": [\"first\", \"second\"] }}")
 
 	}))
 	defer ts.Close()
@@ -32,6 +33,18 @@ func TestForwarder(t *testing.T) {
 
 		if r.URL.Query().Get("name") != "John Lennon" {
 			t.Errorf("Missing replay parameter name. Parameters: %v", r.URL.Query())
+		}
+
+		if r.Header.Get("X-User-Accounts") == "" {
+			t.Errorf("Missing replay header X-User-Accounts. Headers: %v", r.Header)
+		}
+		var accounts []string
+		err := json.Unmarshal([]byte(r.Header.Get("X-User-Accounts")), &accounts)
+		if err != nil {
+			t.Errorf("Couldn't Unmarshal accounts got an error [ %v ] for input [ %s ]", err, r.Header.Get("X-User-Accounts"))
+		}
+		if len(accounts) != 2 {
+			t.Errorf("got an invalid amount of accounts %d while expecing 2 obj: %v", len(accounts), accounts)
 		}
 
 		nextCalled = true
@@ -58,6 +71,11 @@ func TestForwarder(t *testing.T) {
 			Path: "user.name",
 			As:   "name",
 			In:   "parameter",
+		},
+		"accounts": {
+			Path: "user.accounts",
+			As:   "X-User-Accounts",
+			In:   "header",
 		},
 	}
 
