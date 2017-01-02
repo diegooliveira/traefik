@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -60,7 +59,19 @@ func Forward(forward *types.Forward, w http.ResponseWriter, r *http.Request, nex
 	objects := objects.Map(data)
 	for _, replay := range forward.ResponseReplayFields {
 		object := objects.Get(replay.Path)
-		value := fmt.Sprintf("%v", object)
+		var value string
+		switch v := object.(type) {
+		case string:
+			value = v
+		default:
+			byteValue, err := json.Marshal(object)
+			if err != nil {
+				log.Debugf("failed to Marshal object: {}", object)
+				return
+			}
+			value = string(byteValue)
+		}
+
 		switch replay.In {
 		case "parameter":
 			rQuery.Add(replay.As, value)
